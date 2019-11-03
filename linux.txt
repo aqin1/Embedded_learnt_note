@@ -1,0 +1,419 @@
+注意伪指令和ARM指令集的区别
+汇编指令：
+	1.相对跳转指令 b、bl，bl除了跳转外还会返回下一条指令的地址，可跳转范围是当前指令的前后32M，如
+	b fun1
+
+	fun1：
+
+	2.mov可以把一个寄存器的值赋给另一个寄存器，或者把一个常数赋给寄存器。如
+	mov r1， r2			/* r1 = r2 */
+	mov r1， #4096		/* r1 = 4096 */
+	3.当不知道是否是立即数时，用ldr来赋值。如
+	ldr r1， =4097   	/* r1 = 4097 */
+	ldr r1， =label		/* 获取代码的绝对地址 */
+	4.ldr 指令从内存中读取数据到寄存器，str指令把寄存器的值存储到内存中，都是32位的，如
+	ldr r1， [r2, #4]		/* 将地址为r2 + 4的内存单元数据读取到r1中 */	/前变址模式，r2不变
+	ldr r1， [r2]			/* 将地址为r2的内存单元数据读取到r1中 */
+	ldr r1， [r2], #4		/* 将地址为r2的内存单元数据读取到r1中，然后 r2 = r2 + 4 */	/后变址模式，r2变了
+	str r1， [r2，#4]		/* 将r1的数据保存到地址为r2 + 4的内存单元中 */
+	str r1， [r2]			/* 将r1的数据保存到地址为r2的内存单元中 */
+	str r1， [r2]，#4		/* 将r1的数据保存到地址为r2的内存单元中，然后r2 = r2 + 4 */
+	批量内存访问指令 ldm 和 stm
+	5.add 、sub 如
+	add r1，r2，#1	/* 表示r1 = r2 + 1，即寄存器r1的值等于寄存器r2的值加上1 */
+	sub r1，r2，#1	/* 表示r1 = r2 - 1 */
+	6.程序状态寄存器（cpsr）的访问指令：msr、mrs如
+	msr cpsr，r0		/* 复制r0到cpsr中 */
+	mrs r0，cpsr		/* 复制cpsr到r0中 */
+	7.“.extrn” ：定义一个外部符号（可以是函数也可以是变量）
+	8.“.text” ：表示下面的语句都属于代码段
+	9.“.global” ：将本文件中的某个程序标号定义为全局的
+	10.程序计数器：用于存放下一条指令所在单元的地址
+	11.寄存器寻址：直接利用寄存器的值做为操作数；寄存器间接寻址：以寄存器的值做为地址，然后找到这个地址的值做为操作数
+	12.LDM实现批量的从内存块向寄存器组中写入数据，STM实现批量的从寄存器组向内存块中写入数据，
+	13.加减法指令：add R1，R2，#1		/* R1=R2+1 */	SUB R1，R2，#1	/* R1=R2-1 */
+	13.SUBS中的S表示把进位结果写入CPSR如，SUBS R0,R1,R2  /* R0 = R1 - R2 */
+	
+C语言：#if xx  //关心xx的真假	； #ifdef xx	  //关心xx是否被定义
+ATPCS规则:R15 	pc	程序计数器
+		  R14	lr 	连接寄存器
+		  R13 	sp	数据栈指针
+		  R12 	ip 	子程序内部调用的scratch寄存器
+		  其它寄存器详情看嵌入式linux应用开发完全教程（韦东山）P71
+反汇编：   c:	e1a0c00d 	mov	ip, sp
+c： 表示该指令在内存中的地址
+e1a0c00d  表示指令字，这里就是助记符mov的十六进制的机器码
+
+gcc -E hello.c -o hello.i 	// -E 表示预处理，-o 表示输出，使用 -o 来指定输出文件名
+gcc -S hello.i -o hello.S 	// -S 表示编译
+gcc -c hello.S -o hello.o 	// -c 表示预处理、编译、汇编源文件，但不连接
+gcc hello.o -o hello 		// 生成可执行文件，包含了预处理、编译、汇编、连接
+./hello 					// ./<文件名> 表示执行可执行文件，./表示在当前目录查找<文件名>，若没有 ./ 则会跑到系统目录下查找；若hello在test目录下，则执行 ./test/hello 或 /test/hello
+在gcc命令后面紧跟源文件名字或者目标文件名字都是可以的，gcc命令能够自动识别到底是源文件还是目标文件：如果是源文件，那么要经过编译和链接两个步骤才能生成可执行文件；如果是目标文件，只需要链接就可以了。如下：
+gcc hello.c 	//直接生成可执行文件
+gcc hello.o 	//由目标文件生成可执行文件
+gcc -c hello.c 	//生成目标文件
+
+gcc编译选项					选项的意义
+-c					编译、汇编指定的源文件，但是不进行链接
+-S					编译指定的源文件，但是不进行汇编
+-E					预处理指定的源文件，不进行编译
+[file2] -o [file1] 	将文件 file2 编译成可执行文件 file1
+-I directory		指定 include 包含文件的搜索目录
+-g					生成调试信息，该程序可以被调试器调试
+-v 					输出详细的编译信息
+使用 "-save-temps" 可以一次获得全部的中间输出文件
+使用-C选项可以阻止预处理器删除源文件和头文件中的注释：
+使用 -Wall 选项可以输出警告信息
+gcc main.c -o main.out /usr/lib/libm.a 	//通过具体的库路径直接指定链接库
+gcc main.c -o main.out -L/usr/lib -lm 	//使用 -L 指定另外的链接库
+当使用<>来指定包含的头文件时，编译器会从系统头文件库中进行查找，而使用""来包含的头文件，编译器将会从当前程序目录进行查找。在include时被包含文件可以是绝对路径，也可以是相对路径
+" -O0 、-O1 、-O2 、-O3 "编译器的优化选项的 4 个级别，-O0 表示没有优化, -O1 为默认值，-O3 优化级别最高。
+arm-linux-ld选项：
+	-T : 使用它来连接指定的代码段、数据段、bss段的"起始地址"，只用于连接Bootloader、内核等底层。格式如下：
+	-Ttext startaddr 	//其中startaddr是相应段的起始地址，是一个十六进制数，下同
+	-Tdata startaddr 	//同上
+	-Tbss startaddr 	//同上
+
+
+#ifdef ab
+	while(condition_1)
+#else
+	while(condition_2)
+#endif
+	{
+		ff = 2;
+	}
+如果定义了ab，上述代码等价于
+while(condition_1)
+	{
+		ff = 2;
+	}
+否则等价于
+while(condition_2)
+	{
+		ff = 2;
+	}
+
+执行 Shell 脚本有多种方式：
+（1） 点+斜线+文件名， 这种方式要求文件必须有可执行权限；
+（2） 点+空格+文件名，这种方式不要求文件一定具有可执行权限。
+（3） sh+空格+文件名，这种方式不要求文件一定具有可执行权限。
+（4） source+空格+文件名，这种方式不要求文件一定具有可执行权限。
+
+重定向在 Linux 下用“>”和“>>”表示，“>”表示输出到一个新文件中，而“>>”则表示输出到现有文件的末尾。如果文件已经存在，则直接操作文件，否则将创建新文件。
+
+用 less 打开文件后，用 /xxx 就可以搜索文件中的 xxx
+
+cat 命令可以将一个或者多个文件输出到标准输出，如果将标准输出重定位到某个文件，则将多个文件合并一个文件。加上一些参数的话，可以对原文件进行一些处理；cat -b xxx 忽略空白行
+启发：其它命令也可以这样做（重定向）
+
+tar 解压/压缩命令需记住些常规操作
+
+**严格来说， Linux 下的文件名是由“路径+文件名”组成的，不同目录的两个同名文件实际上不是一个文件
+
+cp 命令的常用参数
+
+ln 命令：加 -s 表示创建软链接
+硬链接通过索引节点进行链接，相当于源文件的镜像，占用源文件一样大小的空间，修改其中任何一个，另外一个都会进行同样的改动。不能对目录文件建立硬
+链接。
+软链接和硬链接不同，软链接是产生一个新文件，这个文件指向另一个文件的位置，类
+似于 Windows 下的快捷方式。通常用的更多的是软链接，软链接可以跨文件系统，且可用
+于任何文件，包括目录文件。
+
+-rwxr-xr-x：文件类型   拥有者	   群组成员	   其它用户
+第一个字符是 - ，表示这是一个普通文件，如果是 b 则表示是块设备，是 c 则表示是字符设备，是 d 则表示是目录，是 l 则表示是链接文件， p 表示命名管道， s 表示 Socket 文件。
+
+chmod 用于改变或者设置文件/目录的权限。用 u/g/o 表示文件的拥有者/组内用户/其它用户，用 rwx 分别表示读/写/执行权限，用+/-表示增加或去除某种权限。或用 a 表示 u/g/o 整体。例：chmod o-x hello   // o 用户失去 x 权限
+
+ifconfig命令：
+ broadcast  广播地址		netmask  子网掩码	 hw ether  网卡物理地址
+
+ mount命令
+ umount /dev/sda1  将设备/dev/sda1 取消挂载
+
+ findmnt -t <文件系统>   列出指定的文件系统
+ findmnt -D 或 findmnt --df  以 df 列出所有挂载的文件系统
+ findmnt 列出以挂载的文件系统
+
+df -T 只可以查看已经挂载的分区和文件系统类型。
+fdisk -l 可以显示出所有挂载和未挂载的分区，但不显示文件系统类型。
+parted -l 可以查看未挂载的文件系统类型，以及哪些分区尚未格式化。
+lsblk -f 也可以查看未挂载的文件系统类型。
+
+ ls -hl  带单位的列出文件大小
+ ls -R    递归显示子文件夹
+ ls *f    列出以 f 结尾的文件/文件夹（文件夹会被展开）
+ ls f*    列出以 f 开头的文件/文件夹（文件夹会被展开）
+
+insmod [参数] 模块 [符号名称=值]	 用于插入模块
+rmmod [参数] 模块 	卸载模块
+lsmod 命令查看已加载的模块，实际上就是列出了/proc/modules 的内容
+modprobe 命令集加载/卸载功能于一身，并且可以自动解决模块间的依赖关系，将某模块所依赖的其它模块全部加载。
+
+文件搜索：find 路径 –选项 其它 。-name参数
+字符串搜索：grep 选项 表达式 [文件] 。如搜索 arch/arm 目录下的包含pcd8563的文件， grep "pcf8563" -R arch/arm
+
+永久修改环境变量：通常修改/etc/profile 文件或者~/.bashrc（有
+的发行版上为~/.bash_profile）文件
+
+vi/vim：
+{
+		
+	查看二进制:%!xxd
+
+	G 将光标定位到最后一行
+	nG 将光标定位到第 n 行
+	gg 将光标定位到第 1 行
+	ngg 将光标定位到第 n 行
+	:n 将光标定位到第 n 行
+
+	i 在当前光标前开始插入
+	a 在当前光标位置后面开始插入
+
+	按 v 进入可视模式，移动光标可以选择文本，可以配合 nG 和 ngg 命令定位到任意行，注意不能使用 :n 定位行
+
+	y 复制选定文本
+	p 粘贴文本到光标所在行的下一行
+	yy 复制光标所在行
+	yny 复制从光标开始的 n 行
+
+	字符：剪切/删除
+	x 或 nx 剪切从光标所在的位置开始的一个或 n 个字符
+	X 或 nX 剪切光标前的一个或 n 个字符
+	行：剪切/删除
+	dd 删除光标所在的行
+	D 删除从光标位置开始至行尾
+	dw 删除从光标位置至该词末尾的所有字符
+	d0 删除从光标位置开始至行首
+	dnd 删除光标所在行开始的 n 行。删除多少行，注意和下面的区别
+	dnG / dngg 将光标所在行至第 n 行删除。删除到第几行，注意和上面的区别
+	注：删除和剪切是一样的
+
+	局部匹配：
+	/xxx  光标处向下查找
+	？xxx  光标处向上查找
+	n 查找下一个
+	在命令模式下输入“:set hlsearch”可以实现高亮显示，输入“:set nohlsearch” 取消高亮显示
+	全匹配：光标移到需要搜索的字符串下，按 ” shift + * “即可
+
+	文本替换：
+	:%s /old/new/g  能够将文本内全部的字符串 old 替换为 new。在替换命令尾部加上 c，这样每次替换前都需要确认一下。
+
+	u 撤销上次操作
+	ctrl + r 可以取消上次的撤销
+
+	配置vim/vi：
+	一般开启命令的反义词就是关闭命令
+	:set number /:set nu 显示行号
+	:set nonumber /:set nu!不显示行号
+	:set ignorecase 不区分大小写
+	:set tabstop=n 按下 tab 键则实际输入 n 个空格
+	:set hlsearch 搜索时高亮显示
+	:set nohlsearch 搜索时取消高亮显示
+	:syntax on 开启语法高亮
+	:syntax off 取消语法高亮
+	上面的都是临时修改配置
+	通过配置“/etc/vim/vimrc”或者“~/.vimrc”文件可以永久修改配置。两者的区别是前者全局的，影响登录本机的全部用户，后者仅仅对当前用户有效。
+	配置文件里，" 后面的语句会被注释掉
+
+	vimdiff file1 file2 file3  对比两个文件的内容
+}
+
+ 环境变量的配置文件：
+ 全局配置文件（全部用户）：/etc/profile 
+ 当前用户的配置文件，通常是“~/.bashrc”或者“~/.bash_profile”。
+ 在文件末尾加：export PATH=$PATH:/home/ctools/arm-2011.03/bin/ 即可添加环境变量 /home/ctools/arm-2011.03/bin/ 
+
+ echo ： echo `ifconfig` 表示输出ifconfig的内容（非原格式输出）
+ 		 echo "`ifconfig`"  表示输出ifconfig的内容（原样输出）
+ 		 注意 ifconfig 两边的不是单引号，是 1 旁边的反引号
+
+NaNoPC-T4 的引脚号：GPIOn_Xt : n*32 + X*8 + t,其中ABCD对应01234
+
+当一个文件被打开多次时，比如被多个进程同时打开，或在同一个进程中被打开多次，每打开一次，该文件内部的引用计数就增加 1，对该文件每调用一次 close()，文件引用计数则减 1，当计数值减到 0 时，内核才关闭该文件。当进程终止时，内核会回收进程资源，也按上述规则关闭进程打开的全部文件。
+
+fsync()函数的功能是进行文件数据同步，强制把已修改过的文件数据存入持久存储设备中
+函数原型：int fsync(int fd);
+
+lseek 函数原型：off_t lseek(int fd, off_t offset, int whence);
+	offset：偏移量
+		SEEK_SET 设置新的读写位置为从文件开头算起，偏移 offset 字节；
+		SEEK_CUR 设置新的读写位置为从当前所在的位置算起，偏移 offset 字节，正值表
+		示往文件尾部偏移，负值表示往文件头部偏移；
+		SEEK_END 设置新的读写位置为从文件结尾算起，偏移 offset 字节，正值表示往文
+		件尾部偏移，负值表示往文件头部偏移。
+注意：不是所有类型的文件都能使用 lseek 函数
+
+ioctl：函数原型int ioctl(int fd, int cmd, …);该函数可以对特有设备进行特有的操作，可以理解为设备的属性设置函数，如修改寄存器
+
+
+
+
+flash:相当于硬盘
+nor flash：与RAM接口相同，可以在上面直接执行程序，通常用于存放程序
+nand flash：普通的I/O接口，不可以直接运行程序，所以把程序烧在nand flash时，在复位时CPU（s3c2440）会把前 4K 的程序复制到片内SRAM中。当存在nand flash中的程序大于 4K时，通常做法是前 4K 程序做引导程序，并在引导程序中编写将nand flash中的程序复制到SDRAM(容量一般较大)中的代码，然后跳转到SDRAM中执行程序
+
+乘法相当于 左移；除法相当于 右移
+
+扩大寻址范围的方法：基地址 + 偏移地址
+
+汇编：
+{
+	.section .data
+	.section .text
+	.section 表示把代码划分成若干个段（Section），程序被操作系统加载执行时，每个段被加载到不同的地址，操作系统对不同的页面设置不同的读、写、执行权限。
+	.data 表示数据段，相当于C语言中的全局变量
+	.text 表示代码段
+
+	符号在汇编程序中代表一个地址，可以用在指令中，汇编程序经过汇编器的处理之后，所有的符号都被替换成它所代表的地址值。在C语言中我们通过变量名访问一个变量，其实就是读写某个地址的内存单元，我们通过函数名调用一个函数，其实就是跳转到该函数第一条指令所在的地址，所以变量名和函数名都是符号，本质上是代表内存地址的。
+	如 _start、label: 等
+
+	.globl指示告诉汇编器，_start这个符号要被链接器用到，所以要在目标文件的符号表中标记它是一个全局符号。_start就像C程序的main函数一样特殊，是整个程序的入口，链接器在链接时会查找目标文件中的_start符号代表的地址，把它设置为整个程序的入口地址，所以每个汇编程序都要提供一个_start符号并且用.globl声明。如果一个符号没有用.globl声明，就表示这个符号不会被链接器用到。
+
+	这里定义了_start符号，汇编器在翻译汇编程序时会计算每个数据对象和每条指令的地址，当看到这样一个符号定义时，就把它后面一条指令的地址作为这个符号所代表的地址。而_start这个符号又比较特殊，它所代表的地址是整个程序的入口地址
+
+
+
+代码分析
+  {
+	原代码：
+	#include "s3c2440_soc.h"
+	#include "uart.h"
+	#include "init.h"
+	int t = 12; 
+	int a = 13; 
+	char b = 78; 
+	char r = 65; 
+	int main(void)
+	{
+	        int e = 88; 
+	        int c = 39; 
+	        char d = 40; 
+	        char g = 66; 
+	        uart0_init();
+
+	        sdram_init();
+
+	        if (sdram_test() == 0)
+	                led_test();
+	            
+	        return 0;
+	}
+
+	汇编代码：
+		    .global t 		//.global 表示定义一个全局变量，这个变量在链接时被用到
+	        .data 			// .data 表示定义一个数据段，所以下面存放了一些全局变量
+	        .align  2 		// .align 表示对齐方式
+	        .type   t, %object 	//.type 表示
+	        .size   t, 4 		// .size 表示 t 的大小为 4 字节
+	t:
+	        .word   12  		// .word 表示 t 是一个字的大小(4字节)，12 是 t 的值
+	        .global a
+	        .align  2
+	        .type   a, %object
+	        .size   a, 4
+	a:
+	        .word   13  
+	        .global b
+	        .type   b, %object
+	        .size   b, 1 		// .size 表示 b 的大小为 1 个字节
+	b:
+	        .byte   78   		// .byte 表示 t 的大小为一个字节，78 是 t 的值
+	        .global r
+	        .type   r, %object
+	        .size   r, 1
+	r:
+	        .byte   65 
+  }
+
+}
+
+ARM多级存储结构：寄存器、片上RAM、片外RAM、片外flash
+
+
+
+
+
+
+入口函数格式： int __init funtionname(void)
+			{
+				
+			}
+出口函数格式： void __exit funtionname(void)
+			{
+				
+			}
+通过宏去调用出入口函数：
+ module_init(入口函数)
+ module_exit(出口函数)
+在执行 insmod xxx.ko 时，module_init(入口函数)中的入口函数会被调用
+在执行 rmmod xxx 时，module_exit(出口函数)中的出口函数会被调用
+通常在出入口函数里申请或注销设备
+注意包含内核的相应头文件
+三要素：
+	1.入口（加载）
+	2.出口（卸载）
+	3.GPL协议申明
+
+modinfo 可以查看某个模块的信息
+lsmod 查看内核中已经插入的内核模块
+dmesg 查看内核的日志信息
+	-c 表示清除日志信息
+
+驱动模块和字符设备：
+	驱动模块：一个内核模块，里面有驱动设备的程序，如iic的驱动程序等
+			需要加载模块(insmod xxx.ko)，卸载模块(rmmod xxx)
+	字符设备：是一个具体的设备，设备结构体 cdev ，需要为它分配内存，初		始化，添加到内核中由内核管理，不需要时需要卸载设备等
+	一个模块可以对应多个设备
+
+带参数的内核模块
+主设备号标识设备对应的驱动程序，告诉 Linux 内核使用哪个驱动程序驱动该设备
+主设备号区分设备所使用的驱动模块，从设备号用于区分不同的设备
+在入口函数中需要注册主设备号、设备名等，因为每个主设备都对应一个驱动程序
+内核用 cdev 数据结构来描述字符设备
+struct cdev *char_cdev = cdev_alloc()  //cdev_alloc()函数动态的分配 cdev 结构体
+struct cdev my_cdev   //静态分配 cdev 结构体
+cdev_init(struct cdev *, const struct file_operations *) 函数并没有完全初始化 cdev ，只是初始化一部分
+cdev_init()和cdev_alloc()函数的区别，cdev_alloc()没有初始化 cdev的 *ops 成员
+dev 表示第一个设备号，因为dev只能存储一个设备号，当申请了多个次设备号时，dev只存储了第一个设备号
+
+设备操作：
+	设备号的宏操作
+	静态获取设备号： int register_chrdev_region(dev_t from,unsigned int count,char *name);
+	动态获取设备号： alloc_chrdev_region(dev_t *dev, unsigned int firstminor, unsigned int count, char *name);
+	释放设备号： void unregister_chrdev_region(dev_t from, unsigned count);
+	分配 char_cdev 结构： struct cdev *char_cdev = cdev_alloc()	//分配字符设备，cdev_alloc()也具有部分初始化功能
+	初始化 cdev 结构： void cdev_init(struct cdev *cdev, const struct file_operations *fops)	//初始化字符设备
+	指定设备模型： char_cdev->owner = THIS_MODULE;
+	添加字符设备到内核： int cdev_add(struct cdev *p, dev_t dev, unsigned count)
+	删除字符设备： void cdev_del(struct cdev *p)
+	1.分配设备号
+	2.分配设备(cdev)
+	3.初始化设备
+	4.添加设备到内核
+
+注意：register_chrdev()函数的调用包括了静态设备号的分配，所以其参数里的 major 必须是没被申请或使用的(register_chrdev()也可以分配动态设备号)
+cat /proc/devices //查看设备号使用情况
+
+注意： ./app 运行可执行程序时，若 ./app 里打开某个文件需要 sudo ，则需要使用 sudo ./app
+
+注意：对设备号的操作一定要使用 宏 。要注意参数是 主设备号(高12位)、次设备号(低20位)、还是设备号
+device_create(char_cdev_class, NULL, devno, NULL, "char_cdev", NULL); // devno 是设备号，不能直接写 232
+
+
+
+
+
+对于不同的编译器对应不同的头文件，如 gcc 和 arm-linux-gcc 的 stdio.h 就是不一样的
+printf等函数来源于库，库默认在编译器中的 lib 目录，可以使用 -L 指定库目录，-l 指定库（如 -labc 是指 libabc.so 这个库）
+gcc -o hello hello.c -v 	// -v 可以打印编译的详细信息
+
+制作、使用动态库：
+gcc -c -o main.o  main.c
+gcc -c -o sub.o   sub.c
+gcc -shared  -o libsub.so  sub.o  sub2.o  sub3.o(可以使用多个.o生成动态库)
+gcc -o test main.o  -lsub  -L /libsub.so/所在目录/
+
+
+
