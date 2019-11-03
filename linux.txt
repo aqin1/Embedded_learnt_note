@@ -410,10 +410,25 @@ printf等函数来源于库，库默认在编译器中的 lib 目录，可以使
 gcc -o hello hello.c -v 	// -v 可以打印编译的详细信息
 
 制作、使用动态库：
-gcc -c -o main.o  main.c
-gcc -c -o sub.o   sub.c
-gcc -shared  -o libsub.so  sub.o  sub2.o  sub3.o(可以使用多个.o生成动态库)
-gcc -o test main.o  -lsub  -L /libsub.so/所在目录/
+	制作、编译：
+		gcc -c -o main.o  main.c
+		gcc -c -o sub.o   sub.c
+		gcc -shared  -o libsub.so  sub.o  sub2.o  sub3.o(可以使用多个.o生成动态库)
+		gcc -o test main.o  -lsub  -L /libsub.so/所在目录/、
+		-lsub 指定链接库，-L ./	 指定链接库libsub.so的路径（./ 是libsub.so的所在目录）
+	运行：
+		1.先把libusb.so放到PC或板子上的/lib目录，然后就可以运行test程序。
+		2.如果不想把libusb.so放到/lib，也可以放在某个目录比如/a，然后如下执行：
+		export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/a  
+		./test
+	由于动态库在编译时没有被链接进可执行(test)文件，
+	所以当我们把 test 文件放到其它平台上运行时，需要把 libsub.so 文件复制到其它平台上的/lib目录(lib是默认动态链接库目录)
+很有用的选项：	
+gcc -E main.c   // 查看预处理结果，比如头文件是哪个
+gcc -E -dM main.c  > 1.txt  // 把所有的宏展开，存在1.txt里
+gcc -Wp,-MD,abc.dep -c -o main.o main.c  // 生成依赖文件abc.dep，后面Makefile会用
+gcc -Wp,-MD,abc.dep -c -o main.o main.c  //生成的依赖文件是以“目标:依赖”的形式，没有命令
+
 
 
 
